@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hanna Hub - Water Quality Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0e17; color: #e0e6ed; }
+        .header { background: linear-gradient(135deg, #0d1b2a 0%, #1b2838 100%); padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e3a5f; }
+        .header h1 { font-size: 1.5rem; color: #4fc3f7; }
+        .header .meta { font-size: 0.85rem; color: #7a8a9e; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* Cards grid */
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .card { background: #111927; border: 1px solid #1e3a5f; border-radius: 12px; padding: 20px; }
+        .card .label { font-size: 0.75rem; text-transform: uppercase; color: #7a8a9e; letter-spacing: 0.05em; margin-bottom: 4px; }
+        .card .value { font-size: 2rem; font-weight: 700; }
+        .card .unit { font-size: 0.85rem; color: #7a8a9e; }
+        .card.ph .value { color: #66bb6a; }
+        .card.orp .value { color: #ffa726; }
+        .card.do .value { color: #42a5f5; }
+        .card.ec .value { color: #ab47bc; }
+        .card.temp .value { color: #ef5350; }
+        .card.ise .value { color: #26c6da; }
+        .card.tds .value { color: #8d6e63; }
+        .card.count .value { color: #4fc3f7; }
+
+        /* Charts */
+        .chart-section { margin-bottom: 32px; }
+        .chart-section h2 { font-size: 1.1rem; color: #7a8a9e; margin-bottom: 12px; }
+        .chart-controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .chart-controls button { background: #1e3a5f; border: none; color: #e0e6ed; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+        .chart-controls button:hover, .chart-controls button.active { background: #4fc3f7; color: #0a0e17; }
+        .chart-wrap { background: #111927; border: 1px solid #1e3a5f; border-radius: 12px; padding: 20px; height: 350px; }
+
+        /* Upload */
+        .upload-section { margin-bottom: 32px; }
+        .upload-section h2 { font-size: 1.1rem; color: #7a8a9e; margin-bottom: 12px; }
+        .dropzone { background: #111927; border: 2px dashed #1e3a5f; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+        .dropzone:hover, .dropzone.dragover { border-color: #4fc3f7; }
+        .dropzone p { color: #7a8a9e; }
+        .dropzone .icon { font-size: 2rem; margin-bottom: 8px; }
+        #upload-status { margin-top: 12px; font-size: 0.9rem; }
+
+        /* Alerts */
+        .alerts-section { margin-bottom: 32px; }
+        .alerts-section h2 { font-size: 1.1rem; color: #7a8a9e; margin-bottom: 12px; }
+        .alert-event { background: #1a1207; border: 1px solid #5c3a0a; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; font-size: 0.9rem; }
+        .alert-event .time { color: #7a8a9e; font-size: 0.8rem; }
+        .no-data { color: #3d4f63; font-style: italic; }
+
+        /* Export bar */
+        .export-bar { display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+        .export-bar a, .export-bar button { background: #1e3a5f; border: none; color: #e0e6ed; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; text-decoration: none; }
+        .export-bar a:hover, .export-bar button:hover { background: #4fc3f7; color: #0a0e17; }
+
+        /* Manual entry */
+        .manual-entry { background: #111927; border: 1px solid #1e3a5f; border-radius: 12px; padding: 20px; margin-bottom: 32px; }
+        .manual-entry h2 { font-size: 1.1rem; color: #7a8a9e; margin-bottom: 12px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+        .form-grid label { font-size: 0.75rem; text-transform: uppercase; color: #7a8a9e; display: block; margin-bottom: 4px; }
+        .form-grid input { width: 100%; background: #0a0e17; border: 1px solid #1e3a5f; border-radius: 6px; padding: 8px 12px; color: #e0e6ed; font-size: 0.95rem; }
+        .form-grid input:focus { outline: none; border-color: #4fc3f7; }
+        #manual-submit { margin-top: 12px; background: #4fc3f7; color: #0a0e17; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        #manual-status { margin-top: 8px; font-size: 0.9rem; }
+
+        @media (max-width: 768px) {
+            .cards { grid-template-columns: repeat(2, 1fr); }
+            .container { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Hanna Hub</h1>
+        <div class="meta">HI6000 Water Quality Dashboard &bull; {{ total_readings }} readings</div>
+    </div>
+    <div class="container">
+        <!-- Live cards -->
+        <div class="cards">
+            <div class="card ph">
+                <div class="label">pH</div>
+                <div class="value" id="card-ph">{{ "%.2f"|format(latest.ph) if latest and latest.ph is not none else "--" }}</div>
+            </div>
+            <div class="card orp">
+                <div class="label">ORP</div>
+                <div class="value" id="card-orp">{{ "%.1f"|format(latest.orp_mv) if latest and latest.orp_mv is not none else "--" }}</div>
+                <div class="unit">mV</div>
+            </div>
+            <div class="card do">
+                <div class="label">Dissolved Oxygen</div>
+                <div class="value" id="card-do">{{ "%.2f"|format(latest.do_mgl) if latest and latest.do_mgl is not none else "--" }}</div>
+                <div class="unit">mg/L</div>
+            </div>
+            <div class="card do">
+                <div class="label">DO Saturation</div>
+                <div class="value" id="card-dopct">{{ "%.1f"|format(latest.do_pct) if latest and latest.do_pct is not none else "--" }}</div>
+                <div class="unit">%</div>
+            </div>
+            <div class="card ec">
+                <div class="label">Conductivity</div>
+                <div class="value" id="card-ec">{{ "%.1f"|format(latest.ec_us) if latest and latest.ec_us is not none else "--" }}</div>
+                <div class="unit">&micro;S/cm</div>
+            </div>
+            <div class="card ise">
+                <div class="label">ISE</div>
+                <div class="value" id="card-ise">{{ "%.2f"|format(latest.ise_value) if latest and latest.ise_value is not none else "--" }}</div>
+                <div class="unit">{{ latest.ise_unit if latest and latest.ise_unit else "" }}</div>
+            </div>
+            <div class="card temp">
+                <div class="label">Temperature</div>
+                <div class="value" id="card-temp">{{ "%.1f"|format(latest.temp_c) if latest and latest.temp_c is not none else "--" }}</div>
+                <div class="unit">&deg;C</div>
+            </div>
+            <div class="card count">
+                <div class="label">Total Readings</div>
+                <div class="value" id="card-count">{{ total_readings }}</div>
+            </div>
+        </div>
+
+        <!-- Chart controls -->
+        <div class="chart-section">
+            <h2>Trend Charts</h2>
+            <div class="chart-controls">
+                <button class="active" onclick="loadChart(1)">1H</button>
+                <button onclick="loadChart(6)">6H</button>
+                <button onclick="loadChart(24)">24H</button>
+                <button onclick="loadChart(168)">7D</button>
+                <button onclick="loadChart(720)">30D</button>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Export bar -->
+        <div class="export-bar">
+            <a href="/api/export-csv?hours=24">Export 24H CSV</a>
+            <a href="/api/export-csv?hours=168">Export 7D CSV</a>
+            <a href="/api/export-csv?hours=720">Export 30D CSV</a>
+            <button onclick="location.reload()">Refresh</button>
+        </div>
+
+        <!-- CSV Upload -->
+        <div class="upload-section">
+            <h2>Import CSV from Meter</h2>
+            <div class="dropzone" id="dropzone">
+                <div class="icon">&#128203;</div>
+                <p>Drag & drop HI6000 CSV export here, or click to browse</p>
+                <input type="file" id="csvFile" accept=".csv" style="display:none">
+            </div>
+            <div id="upload-status"></div>
+        </div>
+
+        <!-- Manual entry -->
+        <div class="manual-entry">
+            <h2>Manual Reading Entry</h2>
+            <div class="form-grid">
+                <div><label>pH</label><input type="number" step="0.01" id="m-ph"></div>
+                <div><label>ORP (mV)</label><input type="number" step="0.1" id="m-orp"></div>
+                <div><label>DO (mg/L)</label><input type="number" step="0.01" id="m-do"></div>
+                <div><label>DO (%)</label><input type="number" step="0.1" id="m-dopct"></div>
+                <div><label>EC (&micro;S/cm)</label><input type="number" step="0.1" id="m-ec"></div>
+                <div><label>TDS (mg/L)</label><input type="number" step="0.1" id="m-tds"></div>
+                <div><label>ISE</label><input type="number" step="0.01" id="m-ise"></div>
+                <div><label>Temp (&deg;C)</label><input type="number" step="0.1" id="m-temp"></div>
+                <div><label>Sample ID</label><input type="text" id="m-sample"></div>
+                <div><label>Operator</label><input type="text" id="m-operator"></div>
+            </div>
+            <button id="manual-submit" onclick="submitManual()">Save Reading</button>
+            <div id="manual-status"></div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="alerts-section">
+            <h2>Recent Alerts</h2>
+            {% if alert_events %}
+                {% for evt in alert_events %}
+                <div class="alert-event">
+                    {{ evt.message }}
+                    <div class="time">{{ evt.timestamp.strftime('%Y-%m-%d %H:%M:%S') if evt.timestamp else '' }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="no-data">No alerts triggered yet</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = new URLSearchParams(window.location.search).get('key') || '';
+        let chart = null;
+
+        const COLORS = {
+            ph: '#66bb6a', orp_mv: '#ffa726', do_mgl: '#42a5f5', do_pct: '#29b6f6',
+            ec_us: '#ab47bc', tds_mgl: '#8d6e63', temp_c: '#ef5350', ise_value: '#26c6da'
+        };
+        const LABELS = {
+            ph: 'pH', orp_mv: 'ORP (mV)', do_mgl: 'DO (mg/L)', do_pct: 'DO (%)',
+            ec_us: 'EC (µS/cm)', tds_mgl: 'TDS (mg/L)', temp_c: 'Temp (°C)', ise_value: 'ISE'
+        };
+
+        async function loadChart(hours) {
+            document.querySelectorAll('.chart-controls button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            const res = await fetch(`/api/readings?hours=${hours}&limit=1000`);
+            const data = await res.json();
+            const params = Object.keys(COLORS);
+            const datasets = [];
+            for (const p of params) {
+                const points = data.filter(r => r[p] !== null).map(r => ({x: new Date(r.timestamp), y: r[p]}));
+                if (points.length > 0) {
+                    datasets.push({
+                        label: LABELS[p], data: points, borderColor: COLORS[p],
+                        backgroundColor: COLORS[p] + '22', borderWidth: 2, pointRadius: 2,
+                        tension: 0.3, fill: false
+                    });
+                }
+            }
+            if (chart) chart.destroy();
+            chart = new Chart(document.getElementById('mainChart'), {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#7a8a9e' } } },
+                    scales: {
+                        x: { type: 'time', ticks: { color: '#7a8a9e' }, grid: { color: '#1e3a5f33' } },
+                        y: { ticks: { color: '#7a8a9e' }, grid: { color: '#1e3a5f33' } }
+                    }
+                }
+            });
+        }
+
+        // CSV upload
+        const dropzone = document.getElementById('dropzone');
+        const csvInput = document.getElementById('csvFile');
+        dropzone.addEventListener('click', () => csvInput.click());
+        dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); uploadFile(e.dataTransfer.files[0]); });
+        csvInput.addEventListener('change', () => { if (csvInput.files[0]) uploadFile(csvInput.files[0]); });
+
+        async function uploadFile(file) {
+            const status = document.getElementById('upload-status');
+            status.textContent = 'Uploading...';
+            status.style.color = '#4fc3f7';
+            const form = new FormData();
+            form.append('file', file);
+            try {
+                const res = await fetch(`/api/upload-csv?key=${API_KEY}`, { method: 'POST', body: form });
+                const data = await res.json();
+                if (data.error) { status.textContent = 'Error: ' + data.error; status.style.color = '#ef5350'; }
+                else { status.textContent = `Imported ${data.imported} readings from ${data.filename}`; status.style.color = '#66bb6a'; setTimeout(() => location.reload(), 1500); }
+            } catch(e) { status.textContent = 'Upload failed: ' + e.message; status.style.color = '#ef5350'; }
+        }
+
+        // Manual entry
+        async function submitManual() {
+            const fields = {ph:'m-ph', orp_mv:'m-orp', do_mgl:'m-do', do_pct:'m-dopct', ec_us:'m-ec', tds_mgl:'m-tds', ise_value:'m-ise', temp_c:'m-temp'};
+            const data = { source: 'manual' };
+            for (const [key, id] of Object.entries(fields)) {
+                const v = document.getElementById(id).value;
+                if (v) data[key] = parseFloat(v);
+            }
+            const sample = document.getElementById('m-sample').value;
+            const operator = document.getElementById('m-operator').value;
+            if (sample) data.sample_id = sample;
+            if (operator) data.operator = operator;
+
+            const status = document.getElementById('manual-status');
+            try {
+                const res = await fetch(`/api/readings?key=${API_KEY}`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.error) { status.textContent = 'Error: ' + result.error; status.style.color = '#ef5350'; }
+                else { status.textContent = `Saved reading #${result.id}`; status.style.color = '#66bb6a'; setTimeout(() => location.reload(), 1000); }
+            } catch(e) { status.textContent = 'Failed: ' + e.message; status.style.color = '#ef5350'; }
+        }
+
+        // Auto-refresh every 30s
+        setInterval(async () => {
+            const res = await fetch('/api/readings?hours=1&limit=1');
+            const data = await res.json();
+            if (data.length > 0) {
+                const r = data[data.length - 1];
+                const set = (id, val, dec) => { const el = document.getElementById(id); if (el && val !== null) el.textContent = val.toFixed(dec); };
+                set('card-ph', r.ph, 2);
+                set('card-orp', r.orp_mv, 1);
+                set('card-do', r.do_mgl, 2);
+                set('card-dopct', r.do_pct, 1);
+                set('card-ec', r.ec_us, 1);
+                set('card-ise', r.ise_value, 2);
+                set('card-temp', r.temp_c, 1);
+            }
+        }, 30000);
+
+        // Init chart
+        loadChart(24);
+    </script>
+</body>
+</html>
