@@ -1,6 +1,7 @@
 import csv
 import io
 import os
+import sys
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -11,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from database import engine, get_db, Base
+from database import engine, get_db, Base, DATABASE_URL
 from models import Reading, Alert, AlertEvent
 
 Base.metadata.create_all(bind=engine)
@@ -20,7 +21,24 @@ app = FastAPI(title="SimplyO3 Water Quality", description="HI6000 Water Quality 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-API_KEY = os.environ.get("API_KEY", "hanna-hub-key")
+API_KEY = os.environ.get("API_KEY", "")
+
+# ── Startup checks ──
+
+if not os.environ.get("DATABASE_URL"):
+    print(
+        "WARNING: DATABASE_URL is not set. Using local SQLite which will lose data on redeploy.",
+        file=sys.stderr,
+    )
+
+if not API_KEY:
+    print(
+        "WARNING: API_KEY is not set. All authenticated endpoints will reject requests. "
+        "Set the API_KEY environment variable to enable writes.",
+        file=sys.stderr,
+    )
+
+MAX_CSV_SIZE = 10 * 1024 * 1024  # 10 MB
 
 PARAM_LABELS = {
     "ph": "pH",
@@ -64,6 +82,18 @@ CSV_FIELD_MAP = {
 }
 
 
+def _require_api_key(key: str) -> Optional[JSONResponse]:
+    """Return an error response if the API key is missing or wrong, else None."""
+    if not API_KEY:
+        return JSONResponse(
+            {"error": "API_KEY not configured on server"},
+            status_code=503,
+        )
+    if key != API_KEY:
+        return JSONResponse({"error": "invalid api key"}, status_code=401)
+    return None
+
+
 def check_alerts(db: Session, reading: Reading):
     alerts = db.query(Alert).filter(Alert.active == 1).all()
     for alert in alerts:
@@ -88,7 +118,16 @@ def check_alerts(db: Session, reading: Reading):
     db.commit()
 
 
+# ── Health check ──
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 # ── Dashboard ──
+
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
@@ -105,11 +144,13 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "alert_events": recent_alerts,
             "total_readings": count,
             "params": PARAM_LABELS,
+            "api_key": API_KEY,
         },
     )
 
 
 # ── API: Ingest single reading (from bridge script) ──
+
 
 @app.post("/api/readings")
 def create_reading(
@@ -117,8 +158,9 @@ def create_reading(
     key: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
-    if key != API_KEY:
-        return JSONResponse({"error": "invalid api key"}, status_code=401)
+    err = _require_api_key(key)
+    if err:
+        return err
     reading = Reading(
         ph=data.get("ph"),
         orp_mv=data.get("orp_mv"),
@@ -144,16 +186,26 @@ def create_reading(
 
 # ── API: CSV upload ──
 
+
 @app.post("/api/upload-csv")
 async def upload_csv(
     file: UploadFile = File(...),
     key: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
-    if key != API_KEY:
-        return JSONResponse({"error": "invalid api key"}, status_code=401)
+    err = _require_api_key(key)
+    if err:
+        return err
 
     content = await file.read()
+
+    # Enforce file size limit
+    if len(content) > MAX_CSV_SIZE:
+        return JSONResponse(
+            {"error": f"File too large. Maximum size is {MAX_CSV_SIZE // (1024 * 1024)}MB."},
+            status_code=413,
+        )
+
     text = content.decode("utf-8-sig")
     lines = text.strip().splitlines()
 
@@ -171,6 +223,7 @@ async def upload_csv(
 
     reader = csv.DictReader(lines)
     imported = 0
+    skipped = 0
     for row in reader:
         reading = Reading(source="csv")
         date_str = ""
@@ -213,14 +266,29 @@ async def upload_csv(
                 except ValueError:
                     continue
 
+        # Duplicate detection: skip if a reading with the same timestamp already exists
+        if reading.timestamp:
+            existing = (
+                db.query(Reading.id)
+                .filter(Reading.timestamp == reading.timestamp)
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+
         db.add(reading)
         imported += 1
 
     db.commit()
-    return {"imported": imported, "filename": file.filename}
+    result = {"imported": imported, "filename": file.filename}
+    if skipped:
+        result["skipped_duplicates"] = skipped
+    return result
 
 
 # ── API: Query readings ──
+
 
 @app.get("/api/readings")
 def get_readings(
@@ -255,13 +323,19 @@ def get_readings(
     ]
 
 
-# ── API: Export CSV ──
+# ── API: Export CSV (requires auth) ──
+
 
 @app.get("/api/export-csv")
 def export_csv(
     hours: int = Query(default=168),
+    key: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
+    err = _require_api_key(key)
+    if err:
+        return err
+
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     rows = (
         db.query(Reading)
@@ -314,10 +388,17 @@ def export_csv(
     )
 
 
-# ── Alerts CRUD ──
+# ── Alerts CRUD (all require auth) ──
+
 
 @app.get("/api/alerts")
-def list_alerts(db: Session = Depends(get_db)):
+def list_alerts(
+    key: str = Query(default=""),
+    db: Session = Depends(get_db),
+):
+    err = _require_api_key(key)
+    if err:
+        return err
     return [
         {
             "id": a.id,
@@ -337,8 +418,9 @@ def create_alert(
     key: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
-    if key != API_KEY:
-        return JSONResponse({"error": "invalid api key"}, status_code=401)
+    err = _require_api_key(key)
+    if err:
+        return err
     alert = Alert(
         parameter=data["parameter"],
         condition=data["condition"],
@@ -357,8 +439,9 @@ def delete_alert(
     key: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
-    if key != API_KEY:
-        return JSONResponse({"error": "invalid api key"}, status_code=401)
+    err = _require_api_key(key)
+    if err:
+        return err
     db.query(Alert).filter(Alert.id == alert_id).delete()
     db.commit()
     return {"deleted": alert_id}

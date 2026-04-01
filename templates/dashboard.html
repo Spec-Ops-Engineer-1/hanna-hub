@@ -136,6 +136,36 @@
         .alert-event .time { color: #b45309; font-size: 0.75rem; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
         .no-data { color: #b0b0ba; font-style: italic; font-size: 0.9rem; }
 
+        /* Parameter toggle checkboxes */
+        .param-toggles { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .param-toggle { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500; color: #555; }
+        .param-toggle input[type="checkbox"] { accent-color: var(--toggle-color, #249ac6); width: 14px; height: 14px; cursor: pointer; }
+        .param-toggle.disabled { opacity: 0.4; }
+
+        /* Alert config form */
+        .alert-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+        .alert-form .field { display: flex; flex-direction: column; gap: 4px; }
+        .alert-form label { font-size: 0.7rem; text-transform: uppercase; color: #8c8c9a; font-weight: 600; letter-spacing: 0.05em; }
+        .alert-form select, .alert-form input {
+            background: #f8fafc; border: 1px solid #e0e2e8; border-radius: 8px;
+            padding: 8px 10px; color: #1a1a2e; font-size: 0.85rem; font-family: 'Inter', sans-serif;
+        }
+        .alert-form select:focus, .alert-form input:focus { outline: none; border-color: #249ac6; box-shadow: 0 0 0 3px rgba(36,154,198,0.12); }
+        .alert-list { margin-top: 12px; }
+        .alert-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #f8fafc; border: 1px solid #e0e2e8; border-radius: 8px;
+            padding: 10px 14px; margin-bottom: 6px; font-size: 0.85rem;
+        }
+        .alert-item .info { color: #333; }
+        .alert-item .delete-btn {
+            background: none; border: 1px solid #e0e2e8; border-radius: 6px;
+            color: #dc2626; cursor: pointer; padding: 4px 10px; font-size: 0.75rem; font-weight: 500;
+            transition: all 0.15s;
+        }
+        .alert-item .delete-btn:hover { background: #fef2f2; border-color: #dc2626; }
+        .upload-note { font-size: 0.75rem; color: #8c8c9a; margin-top: 8px; }
+
         /* Footer */
         .footer {
             text-align: center; padding: 20px; color: #8c8c9a; font-size: 0.75rem;
@@ -230,6 +260,16 @@
                 <button onclick="loadChart(168)">7D</button>
                 <button onclick="loadChart(720)">30D</button>
             </div>
+            <div class="param-toggles" id="param-toggles">
+                <label class="param-toggle" style="--toggle-color:#1a893c"><input type="checkbox" checked data-param="ph"> pH</label>
+                <label class="param-toggle" style="--toggle-color:#c9a600"><input type="checkbox" checked data-param="orp_mv"> ORP</label>
+                <label class="param-toggle" style="--toggle-color:#0066ff"><input type="checkbox" checked data-param="do_mgl"> DO (mg/L)</label>
+                <label class="param-toggle" style="--toggle-color:#00b4d8"><input type="checkbox" checked data-param="do_pct"> DO (%)</label>
+                <label class="param-toggle" style="--toggle-color:#249ac6"><input type="checkbox" checked data-param="ec_us"> EC</label>
+                <label class="param-toggle" style="--toggle-color:#0d47a1"><input type="checkbox" checked data-param="tds_mgl"> TDS</label>
+                <label class="param-toggle" style="--toggle-color:#dc2626"><input type="checkbox" checked data-param="temp_c"> Temp</label>
+                <label class="param-toggle" style="--toggle-color:#0891b2"><input type="checkbox" checked data-param="ise_value"> ISE</label>
+            </div>
             <div class="chart-wrap">
                 <canvas id="mainChart"></canvas>
             </div>
@@ -237,9 +277,9 @@
 
         <!-- Export -->
         <div class="btn-row">
-            <a class="btn" href="/api/export-csv?hours=24">Export 24H</a>
-            <a class="btn" href="/api/export-csv?hours=168">Export 7D</a>
-            <a class="btn" href="/api/export-csv?hours=720">Export 30D</a>
+            <a class="btn" href="/api/export-csv?hours=24&key={{ api_key }}">Export 24H</a>
+            <a class="btn" href="/api/export-csv?hours=168&key={{ api_key }}">Export 7D</a>
+            <a class="btn" href="/api/export-csv?hours=720&key={{ api_key }}">Export 30D</a>
             <button class="btn primary" onclick="location.reload()">Refresh</button>
         </div>
 
@@ -251,6 +291,7 @@
                 <p>Drag & drop HI6000 CSV export here, or click to browse</p>
                 <input type="file" id="csvFile" accept=".csv" style="display:none">
             </div>
+            <p class="upload-note">Max file size: 10MB. Duplicate timestamps will be skipped automatically.</p>
             <div id="upload-status"></div>
         </div>
 
@@ -273,9 +314,50 @@
             <div id="manual-status"></div>
         </div>
 
-        <!-- Alerts -->
+        <!-- Alert Configuration -->
         <div class="section-card">
-            <h2>Recent Alerts</h2>
+            <h2>Alert Configuration</h2>
+            <div class="alert-form" id="alert-form">
+                <div class="field">
+                    <label>Parameter</label>
+                    <select id="alert-param">
+                        <option value="ph">pH</option>
+                        <option value="orp_mv">ORP (mV)</option>
+                        <option value="do_mgl">DO (mg/L)</option>
+                        <option value="do_pct">DO (%)</option>
+                        <option value="ec_us">EC (uS/cm)</option>
+                        <option value="tds_mgl">TDS (mg/L)</option>
+                        <option value="temp_c">Temp (C)</option>
+                        <option value="ise_value">ISE</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Condition</label>
+                    <select id="alert-cond">
+                        <option value="gt">Greater than</option>
+                        <option value="lt">Less than</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Threshold</label>
+                    <input type="number" step="any" id="alert-threshold" placeholder="0.0" style="width:100px">
+                </div>
+                <div class="field">
+                    <label>Label</label>
+                    <input type="text" id="alert-label" placeholder="e.g. pH too high" style="width:160px">
+                </div>
+                <button class="btn primary" onclick="createAlert()">Create Alert</button>
+            </div>
+            <div id="alert-config-status" style="font-size:0.85rem;margin-bottom:8px"></div>
+            <h3 style="font-size:0.85rem;font-weight:600;color:#0a1628;margin-bottom:8px">Active Alerts</h3>
+            <div class="alert-list" id="alert-list">
+                <p class="no-data">Loading alerts...</p>
+            </div>
+        </div>
+
+        <!-- Recent Alert Events -->
+        <div class="section-card">
+            <h2>Recent Alert Events</h2>
             {% if alert_events %}
                 {% for evt in alert_events %}
                 <div class="alert-event">
@@ -294,8 +376,10 @@
     </div>
 
     <script>
-        const API_KEY = new URLSearchParams(window.location.search).get('key') || '';
+        const API_KEY = "{{ api_key }}";
         let chart = null;
+        let currentHours = 24;
+        let lastChartData = [];
 
         const COLORS = {
             ph: '#1a893c', orp_mv: '#c9a600', do_mgl: '#0066ff', do_pct: '#00b4d8',
@@ -306,13 +390,19 @@
             ec_us: 'EC (µS/cm)', tds_mgl: 'TDS (mg/L)', temp_c: 'Temp (°C)', ise_value: 'ISE'
         };
 
-        async function loadChart(hours) {
-            document.querySelectorAll('.chart-controls button').forEach(b => b.classList.remove('active'));
-            if (event && event.target) event.target.classList.add('active');
-            const res = await fetch(`/api/readings?hours=${hours}&limit=1000`);
-            const data = await res.json();
+        function getEnabledParams() {
+            const enabled = [];
+            document.querySelectorAll('#param-toggles input[type="checkbox"]').forEach(cb => {
+                if (cb.checked) enabled.push(cb.dataset.param);
+            });
+            return enabled;
+        }
+
+        function buildChart(data) {
+            const enabled = getEnabledParams();
             const datasets = [];
             for (const [p, color] of Object.entries(COLORS)) {
+                if (!enabled.includes(p)) continue;
                 const points = data.filter(r => r[p] !== null).map(r => ({x: new Date(r.timestamp), y: r[p]}));
                 if (points.length > 0) {
                     datasets.push({
@@ -340,6 +430,20 @@
                 }
             });
         }
+
+        async function loadChart(hours) {
+            currentHours = hours;
+            document.querySelectorAll('.chart-controls button').forEach(b => b.classList.remove('active'));
+            if (event && event.target) event.target.classList.add('active');
+            const res = await fetch(`/api/readings?hours=${hours}&limit=1000`);
+            lastChartData = await res.json();
+            buildChart(lastChartData);
+        }
+
+        // Rebuild chart when toggles change
+        document.getElementById('param-toggles').addEventListener('change', () => {
+            buildChart(lastChartData);
+        });
 
         // CSV upload
         const dropzone = document.getElementById('dropzone');
@@ -415,7 +519,56 @@
             } catch(e) {}
         }, 15000);
 
+        // Alert CRUD
+        const ALERT_LABELS = {
+            ph: 'pH', orp_mv: 'ORP (mV)', do_mgl: 'DO (mg/L)', do_pct: 'DO (%)',
+            ec_us: 'EC (uS/cm)', tds_mgl: 'TDS (mg/L)', temp_c: 'Temp (C)', ise_value: 'ISE'
+        };
+        const COND_LABELS = { gt: '>', lt: '<', eq: '=' };
+
+        async function loadAlerts() {
+            const list = document.getElementById('alert-list');
+            try {
+                const res = await fetch(`/api/alerts?key=${API_KEY}`);
+                const alerts = await res.json();
+                if (alerts.error) { list.innerHTML = '<p class="no-data">Auth required to view alerts</p>'; return; }
+                if (alerts.length === 0) { list.innerHTML = '<p class="no-data">No alerts configured</p>'; return; }
+                list.innerHTML = alerts.map(a => `
+                    <div class="alert-item">
+                        <span class="info"><strong>${ALERT_LABELS[a.parameter] || a.parameter}</strong> ${COND_LABELS[a.condition] || a.condition} ${a.threshold}${a.label ? ' — ' + a.label : ''}</span>
+                        <button class="delete-btn" onclick="deleteAlert(${a.id})">Delete</button>
+                    </div>
+                `).join('');
+            } catch(e) { list.innerHTML = '<p class="no-data">Failed to load alerts</p>'; }
+        }
+
+        async function createAlert() {
+            const param = document.getElementById('alert-param').value;
+            const cond = document.getElementById('alert-cond').value;
+            const threshold = parseFloat(document.getElementById('alert-threshold').value);
+            const label = document.getElementById('alert-label').value;
+            const status = document.getElementById('alert-config-status');
+            if (isNaN(threshold)) { status.textContent = 'Enter a valid threshold'; status.style.color = '#dc2626'; return; }
+            try {
+                const res = await fetch(`/api/alerts?key=${API_KEY}`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ parameter: param, condition: cond, threshold, label })
+                });
+                const data = await res.json();
+                if (data.error) { status.textContent = 'Error: ' + data.error; status.style.color = '#dc2626'; }
+                else { status.textContent = 'Alert created'; status.style.color = '#16a34a'; document.getElementById('alert-threshold').value = ''; document.getElementById('alert-label').value = ''; loadAlerts(); }
+            } catch(e) { status.textContent = 'Failed: ' + e.message; status.style.color = '#dc2626'; }
+        }
+
+        async function deleteAlert(id) {
+            try {
+                await fetch(`/api/alerts/${id}?key=${API_KEY}`, { method: 'DELETE' });
+                loadAlerts();
+            } catch(e) {}
+        }
+
         loadChart(24);
+        loadAlerts();
     </script>
 </body>
 </html>
