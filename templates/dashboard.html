@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hanna Hub - HI6000 Water Quality</title>
+    <title>SimplyO3 Water Quality - HI6000 Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #f0f4f8; color: #1a1a2e; }
 
-        /* Header — Hanna blue */
+        /* Header — SimplyO3 navy gradient */
         .header {
-            background: #fff;
-            padding: 16px 32px;
+            background: linear-gradient(135deg, #0a1628 0%, #0d47a1 100%);
+            padding: 18px 32px;
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 3px solid #0072CE;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            box-shadow: 0 2px 8px rgba(10,22,40,0.25);
         }
-        .header h1 { font-size: 1.4rem; font-weight: 700; color: #0072CE; letter-spacing: -0.02em; }
-        .header .hanna-badge { font-size: 0.7rem; background: #0072CE; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-left: 8px; vertical-align: middle; }
-        .header .meta { font-size: 0.8rem; color: #8c8c9a; }
-        .header .live-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+        .header h1 { font-size: 1.4rem; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+        .header .brand-sub { font-size: 0.75rem; color: rgba(255,255,255,0.65); font-weight: 400; margin-top: 2px; }
+        .header .hanna-badge { font-size: 0.65rem; background: rgba(255,255,255,0.15); color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-left: 8px; vertical-align: middle; border: 1px solid rgba(255,255,255,0.2); }
+        .header .meta { font-size: 0.8rem; color: rgba(255,255,255,0.7); }
+        .header .live-dot { width: 8px; height: 8px; background: #1a893c; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 2s infinite; box-shadow: 0 0 6px rgba(26,137,60,0.5); }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
         .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
@@ -32,71 +32,72 @@
         .timestamp-bar {
             background: #fff; border-radius: 12px; padding: 12px 20px;
             margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
         .timestamp-bar .ts { font-size: 0.95rem; color: #555; font-weight: 500; }
-        .timestamp-bar .ts span { color: #0072CE; font-weight: 600; }
-        .timestamp-bar .count { font-size: 0.8rem; color: #8c8c9a; }
+        .timestamp-bar .ts span { color: #0d47a1; font-weight: 600; }
+        .timestamp-bar .count { font-size: 0.8rem; color: #8c8c9a; font-family: 'JetBrains Mono', monospace; }
 
-        /* Reading cards — meter style */
+        /* Reading cards */
         .readings { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px; }
         .reading-card {
             background: #fff; border-radius: 16px; padding: 24px 20px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
             border-left: 4px solid #ddd;
             transition: transform 0.15s, box-shadow 0.15s;
         }
-        .reading-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .reading-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
         .reading-card .param-label {
             font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
             color: #8c8c9a; font-weight: 600; margin-bottom: 8px;
         }
         .reading-card .param-value {
             font-size: 2.6rem; font-weight: 300; line-height: 1;
+            font-family: 'JetBrains Mono', monospace;
             font-variant-numeric: tabular-nums;
         }
         .reading-card .param-unit { font-size: 0.85rem; color: #8c8c9a; margin-top: 4px; font-weight: 400; }
 
-        /* Color accents per parameter */
-        .reading-card.ph { border-left-color: #22c55e; }
-        .reading-card.ph .param-value { color: #16a34a; }
-        .reading-card.orp { border-left-color: #f59e0b; }
-        .reading-card.orp .param-value { color: #d97706; }
-        .reading-card.do { border-left-color: #3b82f6; }
-        .reading-card.do .param-value { color: #2563eb; }
-        .reading-card.dopct { border-left-color: #06b6d4; }
-        .reading-card.dopct .param-value { color: #0891b2; }
-        .reading-card.ec { border-left-color: #8b5cf6; }
-        .reading-card.ec .param-value { color: #7c3aed; }
-        .reading-card.tds { border-left-color: #a78bfa; }
-        .reading-card.tds .param-value { color: #6d28d9; }
-        .reading-card.ise { border-left-color: #14b8a6; }
-        .reading-card.ise .param-value { color: #0d9488; }
+        /* Color accents per parameter — SimplyO3 palette */
+        .reading-card.ph { border-left-color: #1a893c; }
+        .reading-card.ph .param-value { color: #1a893c; }
+        .reading-card.orp { border-left-color: #fbcf00; }
+        .reading-card.orp .param-value { color: #c9a600; }
+        .reading-card.do { border-left-color: #0066ff; }
+        .reading-card.do .param-value { color: #0066ff; }
+        .reading-card.dopct { border-left-color: #00b4d8; }
+        .reading-card.dopct .param-value { color: #00b4d8; }
+        .reading-card.ec { border-left-color: #249ac6; }
+        .reading-card.ec .param-value { color: #249ac6; }
+        .reading-card.tds { border-left-color: #0d47a1; }
+        .reading-card.tds .param-value { color: #0d47a1; }
+        .reading-card.ise { border-left-color: #00b4d8; }
+        .reading-card.ise .param-value { color: #0891b2; }
         .reading-card.temp { border-left-color: #ef4444; }
         .reading-card.temp .param-value { color: #dc2626; }
 
         /* Chart section */
         .section-card {
             background: #fff; border-radius: 16px; padding: 24px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-bottom: 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 24px;
         }
-        .section-card h2 { font-size: 0.95rem; font-weight: 600; color: #333; margin-bottom: 16px; }
+        .section-card h2 { font-size: 0.95rem; font-weight: 600; color: #0a1628; margin-bottom: 16px; }
         .chart-controls { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
         .chart-controls button {
-            background: #f0f2f5; border: 1px solid #e0e2e8; color: #555;
+            background: #f0f4f8; border: 1px solid #e0e2e8; color: #555;
             padding: 6px 16px; border-radius: 8px; cursor: pointer;
-            font-size: 0.8rem; font-weight: 500; transition: all 0.15s;
+            font-size: 0.8rem; font-weight: 500; font-family: 'Inter', sans-serif; transition: all 0.15s;
         }
-        .chart-controls button:hover { background: #e8eaef; }
-        .chart-controls button.active { background: #0072CE; color: #fff; border-color: #0072CE; }
+        .chart-controls button:hover { background: #e1e8f0; }
+        .chart-controls button.active { background: #0d47a1; color: #fff; border-color: #0d47a1; }
         .chart-wrap { height: 320px; }
 
         /* Upload dropzone */
         .dropzone {
-            background: #fafbfc; border: 2px dashed #d0d4db; border-radius: 12px;
+            background: #f8fafc; border: 2px dashed #c8d4e0; border-radius: 12px;
             padding: 36px; text-align: center; cursor: pointer; transition: all 0.2s;
         }
-        .dropzone:hover, .dropzone.dragover { border-color: #0072CE; background: #f0f7ff; }
+        .dropzone:hover, .dropzone.dragover { border-color: #249ac6; background: #f0f7ff; }
         .dropzone .icon { font-size: 2rem; margin-bottom: 8px; }
         .dropzone p { color: #8c8c9a; font-size: 0.9rem; }
         #upload-status { margin-top: 10px; font-size: 0.85rem; }
@@ -107,21 +108,23 @@
             background: #fff; border: 1px solid #d0d4db; color: #333;
             padding: 10px 20px; border-radius: 10px; cursor: pointer;
             font-size: 0.85rem; font-weight: 500; text-decoration: none;
+            font-family: 'Inter', sans-serif;
             transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
         }
-        .btn:hover { background: #f0f7ff; border-color: #0072CE; color: #0072CE; }
-        .btn.primary { background: #0072CE; color: #fff; border-color: #0072CE; }
-        .btn.primary:hover { background: #005fa3; }
+        .btn:hover { background: #f0f7ff; border-color: #249ac6; color: #249ac6; }
+        .btn.primary { background: #0d47a1; color: #fff; border-color: #0d47a1; }
+        .btn.primary:hover { background: #0a1628; }
 
         /* Manual entry form */
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
         .form-grid label { font-size: 0.7rem; text-transform: uppercase; color: #8c8c9a; font-weight: 600; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
         .form-grid input {
-            width: 100%; background: #fafbfc; border: 1px solid #e0e2e8; border-radius: 8px;
-            padding: 10px 12px; color: #1a1a2e; font-size: 1rem; font-weight: 300;
+            width: 100%; background: #f8fafc; border: 1px solid #e0e2e8; border-radius: 8px;
+            padding: 10px 12px; color: #1a1a2e; font-size: 1rem; font-weight: 400;
+            font-family: 'JetBrains Mono', monospace;
             font-variant-numeric: tabular-nums;
         }
-        .form-grid input:focus { outline: none; border-color: #0072CE; box-shadow: 0 0 0 3px rgba(0,114,206,0.1); }
+        .form-grid input:focus { outline: none; border-color: #249ac6; box-shadow: 0 0 0 3px rgba(36,154,198,0.12); }
         #manual-submit { margin-top: 14px; }
         #manual-status { margin-top: 8px; font-size: 0.85rem; }
 
@@ -130,24 +133,33 @@
             background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px;
             padding: 12px 16px; margin-bottom: 8px; font-size: 0.85rem; color: #92400e;
         }
-        .alert-event .time { color: #b45309; font-size: 0.75rem; margin-top: 4px; }
+        .alert-event .time { color: #b45309; font-size: 0.75rem; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
         .no-data { color: #b0b0ba; font-style: italic; font-size: 0.9rem; }
+
+        /* Footer */
+        .footer {
+            text-align: center; padding: 20px; color: #8c8c9a; font-size: 0.75rem;
+            border-top: 1px solid #e0e4ea; margin-top: 12px;
+        }
+        .footer a { color: #249ac6; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
 
         @media (max-width: 768px) {
             .readings { grid-template-columns: repeat(2, 1fr); }
             .reading-card .param-value { font-size: 2rem; }
             .container { padding: 12px; }
-            .header { padding: 12px 16px; }
+            .header { padding: 14px 16px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <div>
-            <h1>Hanna Hub <span class="hanna-badge">HI6000</span></h1>
+            <h1>SimplyO3 Water Quality <span class="hanna-badge">HI6000</span></h1>
+            <div class="brand-sub">Hanna Instruments Multiparameter Dashboard</div>
         </div>
         <div class="meta">
-            <span class="live-dot"></span>Water Quality Dashboard
+            <span class="live-dot"></span>Live Monitoring
         </div>
     </div>
 
@@ -275,6 +287,10 @@
                 <p class="no-data">No alerts triggered</p>
             {% endif %}
         </div>
+        <!-- Footer -->
+        <div class="footer">
+            SimplyO3 Water Quality Dashboard &mdash; Powered by Hanna Instruments HI6000
+        </div>
     </div>
 
     <script>
@@ -282,8 +298,8 @@
         let chart = null;
 
         const COLORS = {
-            ph: '#16a34a', orp_mv: '#d97706', do_mgl: '#2563eb', do_pct: '#0891b2',
-            ec_us: '#7c3aed', tds_mgl: '#6d28d9', temp_c: '#dc2626', ise_value: '#0d9488'
+            ph: '#1a893c', orp_mv: '#c9a600', do_mgl: '#0066ff', do_pct: '#00b4d8',
+            ec_us: '#249ac6', tds_mgl: '#0d47a1', temp_c: '#dc2626', ise_value: '#0891b2'
         };
         const LABELS = {
             ph: 'pH', orp_mv: 'ORP (mV)', do_mgl: 'DO (mg/L)', do_pct: 'DO (%)',
@@ -314,8 +330,8 @@
                     responsive: true, maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: '#555', font: { family: 'Inter', size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
-                        tooltip: { backgroundColor: '#fff', titleColor: '#333', bodyColor: '#555', borderColor: '#e0e2e8', borderWidth: 1, cornerRadius: 8 }
+                        legend: { labels: { color: '#555', font: { family: "'Inter', sans-serif", size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+                        tooltip: { backgroundColor: '#fff', titleColor: '#0a1628', bodyColor: '#555', titleFont: { family: "'Inter', sans-serif" }, bodyFont: { family: "'JetBrains Mono', monospace", size: 11 }, borderColor: '#e0e2e8', borderWidth: 1, cornerRadius: 8 }
                     },
                     scales: {
                         x: { type: 'time', ticks: { color: '#8c8c9a', font: { size: 10 } }, grid: { color: '#f0f0f5' } },
@@ -337,7 +353,7 @@
         async function uploadFile(file) {
             const status = document.getElementById('upload-status');
             status.textContent = 'Uploading...';
-            status.style.color = '#0072CE';
+            status.style.color = '#249ac6';
             const form = new FormData();
             form.append('file', file);
             try {
@@ -375,7 +391,7 @@
         function updateClock() {
             const now = new Date();
             const opts = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-            document.title = `Hanna Hub - ${now.toLocaleTimeString()}`;
+            document.title = `SimplyO3 Water Quality - ${now.toLocaleTimeString()}`;
         }
         setInterval(updateClock, 1000);
 

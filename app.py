@@ -16,7 +16,7 @@ from models import Reading, Alert, AlertEvent
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Hanna Hub", description="HI6000 Water Quality Dashboard")
+app = FastAPI(title="SimplyO3 Water Quality", description="HI6000 Water Quality Dashboard")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
