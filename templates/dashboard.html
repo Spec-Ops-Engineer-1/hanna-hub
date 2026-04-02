@@ -44,7 +44,8 @@
             background: #fff; border-radius: 16px; padding: 24px 20px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.06);
             border-left: 4px solid #ddd;
-            transition: transform 0.15s, box-shadow 0.15s;
+            transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+            will-change: transform;
         }
         .reading-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
         .reading-card .param-label {
@@ -55,7 +56,9 @@
             font-size: 2.6rem; font-weight: 300; line-height: 1;
             font-family: 'JetBrains Mono', monospace;
             font-variant-numeric: tabular-nums;
+            transition: opacity 0.25s ease-out;
         }
+        .reading-card .param-value.updating { opacity: 0.4; }
         .reading-card .param-unit { font-size: 0.85rem; color: #8c8c9a; margin-top: 4px; font-weight: 400; }
 
         /* Color accents per parameter — SimplyO3 palette */
@@ -86,18 +89,28 @@
         .chart-controls button {
             background: #f0f4f8; border: 1px solid #e0e2e8; color: #555;
             padding: 6px 16px; border-radius: 8px; cursor: pointer;
-            font-size: 0.8rem; font-weight: 500; font-family: 'Inter', sans-serif; transition: all 0.15s;
+            font-size: 0.8rem; font-weight: 500; font-family: 'Inter', sans-serif;
+            transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+            will-change: background-color;
+            min-width: 44px; min-height: 44px;
         }
         .chart-controls button:hover { background: #e1e8f0; }
         .chart-controls button.active { background: #0d47a1; color: #fff; border-color: #0d47a1; }
+        .chart-controls button.loading { opacity: 0.6; pointer-events: none; }
+        .chart-controls button.loading::after { content: ' ...'; }
         .chart-wrap { height: 320px; }
 
         /* Upload dropzone */
         .dropzone {
             background: #f8fafc; border: 2px dashed #c8d4e0; border-radius: 12px;
-            padding: 36px; text-align: center; cursor: pointer; transition: all 0.2s;
+            padding: 36px; text-align: center; cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
         }
         .dropzone:hover, .dropzone.dragover { border-color: #249ac6; background: #f0f7ff; }
+        .dropzone.uploading { pointer-events: none; opacity: 0.7; }
+        .dropzone .progress-bar { display: none; height: 4px; background: #e0e2e8; border-radius: 2px; margin-top: 12px; overflow: hidden; }
+        .dropzone .progress-bar .fill { height: 100%; background: #249ac6; border-radius: 2px; width: 0%; transition: width 0.3s; }
+        .dropzone.uploading .progress-bar { display: block; }
         .dropzone .icon { font-size: 2rem; margin-bottom: 8px; }
         .dropzone p { color: #8c8c9a; font-size: 0.9rem; }
         #upload-status { margin-top: 10px; font-size: 0.85rem; }
@@ -109,11 +122,15 @@
             padding: 10px 20px; border-radius: 10px; cursor: pointer;
             font-size: 0.85rem; font-weight: 500; text-decoration: none;
             font-family: 'Inter', sans-serif;
-            transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+            transition: background-color 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+            display: inline-flex; align-items: center; gap: 6px;
+            min-height: 44px;
         }
         .btn:hover { background: #f0f7ff; border-color: #249ac6; color: #249ac6; }
         .btn.primary { background: #0d47a1; color: #fff; border-color: #0d47a1; }
         .btn.primary:hover { background: #0a1628; }
+        .btn.loading { opacity: 0.6; pointer-events: none; }
+        .btn.loading::after { content: ' ...'; }
 
         /* Manual entry form */
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
@@ -161,9 +178,14 @@
         .alert-item .delete-btn {
             background: none; border: 1px solid #e0e2e8; border-radius: 6px;
             color: #dc2626; cursor: pointer; padding: 4px 10px; font-size: 0.75rem; font-weight: 500;
-            transition: all 0.15s;
+            transition: background-color 0.15s, border-color 0.15s;
+            min-width: 44px; min-height: 36px;
         }
         .alert-item .delete-btn:hover { background: #fef2f2; border-color: #dc2626; }
+        .alert-item { animation: slideIn 0.2s ease-out; }
+        .alert-item.removing { animation: slideOut 0.2s ease-out forwards; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); height: 0; padding: 0; margin: 0; border: 0; overflow: hidden; } }
         .upload-note { font-size: 0.75rem; color: #8c8c9a; margin-top: 8px; }
 
         /* Footer */
@@ -179,6 +201,23 @@
             .reading-card .param-value { font-size: 2rem; }
             .container { padding: 12px; }
             .header { padding: 14px 16px; }
+            .chart-controls { gap: 4px; }
+            .chart-controls button { padding: 8px 12px; min-width: 44px; min-height: 44px; font-size: 0.75rem; }
+            .param-toggles { gap: 6px; }
+            .param-toggle { font-size: 0.75rem; min-height: 44px; display: flex; align-items: center; }
+            .param-toggle input[type="checkbox"] { width: 18px; height: 18px; }
+            .btn-row { gap: 8px; }
+            .btn { padding: 10px 14px; min-height: 44px; font-size: 0.8rem; }
+            .alert-form { flex-direction: column; }
+            .alert-form .field { width: 100%; }
+            .alert-form select, .alert-form input { width: 100% !important; }
+            .form-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .chart-wrap { height: 240px; }
+            .timestamp-bar { flex-direction: column; gap: 4px; }
+        }
+        @media (max-width: 480px) {
+            .readings { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -254,11 +293,11 @@
         <div class="section-card">
             <h2>Trend</h2>
             <div class="chart-controls">
-                <button onclick="loadChart(1)">1H</button>
-                <button onclick="loadChart(6)">6H</button>
-                <button class="active" onclick="loadChart(24)">24H</button>
-                <button onclick="loadChart(168)">7D</button>
-                <button onclick="loadChart(720)">30D</button>
+                <button onclick="loadChart(1, this)">1H</button>
+                <button onclick="loadChart(6, this)">6H</button>
+                <button class="active" onclick="loadChart(24, this)">24H</button>
+                <button onclick="loadChart(168, this)">7D</button>
+                <button onclick="loadChart(720, this)">30D</button>
             </div>
             <div class="param-toggles" id="param-toggles">
                 <label class="param-toggle" style="--toggle-color:#1a893c"><input type="checkbox" checked data-param="ph"> pH</label>
@@ -277,9 +316,9 @@
 
         <!-- Export -->
         <div class="btn-row">
-            <a class="btn" href="/api/export-csv?hours=24&key={{ api_key }}">Export 24H</a>
-            <a class="btn" href="/api/export-csv?hours=168&key={{ api_key }}">Export 7D</a>
-            <a class="btn" href="/api/export-csv?hours=720&key={{ api_key }}">Export 30D</a>
+            <a class="btn" href="/api/export-csv?hours=24&key={{ api_key }}" download>Export 24H</a>
+            <a class="btn" href="/api/export-csv?hours=168&key={{ api_key }}" download>Export 7D</a>
+            <a class="btn" href="/api/export-csv?hours=720&key={{ api_key }}" download>Export 30D</a>
             <button class="btn primary" onclick="location.reload()">Refresh</button>
         </div>
 
@@ -290,6 +329,7 @@
                 <div class="icon">&#128203;</div>
                 <p>Drag & drop HI6000 CSV export here, or click to browse</p>
                 <input type="file" id="csvFile" accept=".csv" style="display:none">
+                <div class="progress-bar"><div class="fill" id="upload-progress-fill"></div></div>
             </div>
             <p class="upload-note">Max file size: 10MB. Duplicate timestamps will be skipped automatically.</p>
             <div id="upload-status"></div>
@@ -380,6 +420,7 @@
         let chart = null;
         let currentHours = 24;
         let lastChartData = [];
+        let chartLoading = false;
 
         const COLORS = {
             ph: '#1a893c', orp_mv: '#c9a600', do_mgl: '#0066ff', do_pct: '#00b4d8',
@@ -390,6 +431,21 @@
             ec_us: 'EC (µS/cm)', tds_mgl: 'TDS (mg/L)', temp_c: 'Temp (°C)', ise_value: 'ISE'
         };
 
+        const CHART_OPTIONS = {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            animation: { duration: 300, easing: 'easeOutQuart' },
+            transitions: { active: { animation: { duration: 200 } } },
+            plugins: {
+                legend: { labels: { color: '#555', font: { family: "'Inter', sans-serif", size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+                tooltip: { backgroundColor: '#fff', titleColor: '#0a1628', bodyColor: '#555', titleFont: { family: "'Inter', sans-serif" }, bodyFont: { family: "'JetBrains Mono', monospace", size: 11 }, borderColor: '#e0e2e8', borderWidth: 1, cornerRadius: 8 }
+            },
+            scales: {
+                x: { type: 'time', ticks: { color: '#8c8c9a', font: { size: 10 } }, grid: { color: '#f0f0f5' } },
+                y: { ticks: { color: '#8c8c9a', font: { size: 10 } }, grid: { color: '#f0f0f5' } }
+            }
+        };
+
         function getEnabledParams() {
             const enabled = [];
             document.querySelectorAll('#param-toggles input[type="checkbox"]').forEach(cb => {
@@ -398,7 +454,7 @@
             return enabled;
         }
 
-        function buildChart(data) {
+        function buildDatasets(data) {
             const enabled = getEnabledParams();
             const datasets = [];
             for (const [p, color] of Object.entries(COLORS)) {
@@ -412,40 +468,56 @@
                     });
                 }
             }
-            if (chart) chart.destroy();
+            return datasets;
+        }
+
+        function buildChart(data) {
+            const datasets = buildDatasets(data);
+            if (chart) {
+                /* Reuse existing chart -- update() is far cheaper than destroy+create */
+                chart.data.datasets = datasets;
+                chart.update('active');
+                return;
+            }
             chart = new Chart(document.getElementById('mainChart'), {
                 type: 'line',
                 data: { datasets },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { labels: { color: '#555', font: { family: "'Inter', sans-serif", size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
-                        tooltip: { backgroundColor: '#fff', titleColor: '#0a1628', bodyColor: '#555', titleFont: { family: "'Inter', sans-serif" }, bodyFont: { family: "'JetBrains Mono', monospace", size: 11 }, borderColor: '#e0e2e8', borderWidth: 1, cornerRadius: 8 }
-                    },
-                    scales: {
-                        x: { type: 'time', ticks: { color: '#8c8c9a', font: { size: 10 } }, grid: { color: '#f0f0f5' } },
-                        y: { ticks: { color: '#8c8c9a', font: { size: 10 } }, grid: { color: '#f0f0f5' } }
-                    }
-                }
+                options: CHART_OPTIONS
             });
         }
 
-        async function loadChart(hours) {
+        async function loadChart(hours, btn) {
+            if (chartLoading) return;
+            chartLoading = true;
             currentHours = hours;
-            document.querySelectorAll('.chart-controls button').forEach(b => b.classList.remove('active'));
-            if (event && event.target) event.target.classList.add('active');
-            const res = await fetch(`/api/readings?hours=${hours}&limit=1000`);
-            lastChartData = await res.json();
-            buildChart(lastChartData);
+            /* Instant active-state swap */
+            document.querySelectorAll('.chart-controls button').forEach(b => {
+                b.classList.remove('active');
+                b.classList.add('loading');
+            });
+            if (btn) btn.classList.add('active');
+            try {
+                const res = await fetch(`/api/readings?hours=${hours}&limit=1000`);
+                lastChartData = await res.json();
+                buildChart(lastChartData);
+            } catch(e) { console.error('Chart load failed', e); }
+            document.querySelectorAll('.chart-controls button').forEach(b => b.classList.remove('loading'));
+            chartLoading = false;
         }
 
-        // Rebuild chart when toggles change
+        /* Rebuild chart when toggles change -- uses update() via buildChart */
         document.getElementById('param-toggles').addEventListener('change', () => {
             buildChart(lastChartData);
         });
 
-        // CSV upload
+        /* Handle chart resize smoothly */
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (chart) chart.resize(); }, 100);
+        });
+
+        // CSV upload with progress
         const dropzone = document.getElementById('dropzone');
         const csvInput = document.getElementById('csvFile');
         dropzone.addEventListener('click', () => csvInput.click());
@@ -456,20 +528,47 @@
 
         async function uploadFile(file) {
             const status = document.getElementById('upload-status');
+            const progressFill = document.getElementById('upload-progress-fill');
             status.textContent = 'Uploading...';
             status.style.color = '#249ac6';
+            dropzone.classList.add('uploading');
+            progressFill.style.width = '0%';
             const form = new FormData();
             form.append('file', file);
             try {
-                const res = await fetch(`/api/upload-csv?key=${API_KEY}`, { method: 'POST', body: form });
-                const data = await res.json();
-                if (data.error) { status.textContent = 'Error: ' + data.error; status.style.color = '#dc2626'; }
-                else { status.textContent = `Imported ${data.imported} readings from ${data.filename}`; status.style.color = '#16a34a'; setTimeout(() => location.reload(), 1500); }
-            } catch(e) { status.textContent = 'Upload failed: ' + e.message; status.style.color = '#dc2626'; }
+                const xhr = new XMLHttpRequest();
+                const result = await new Promise((resolve, reject) => {
+                    xhr.upload.addEventListener('progress', e => {
+                        if (e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 100);
+                            progressFill.style.width = pct + '%';
+                        }
+                    });
+                    xhr.addEventListener('load', () => {
+                        try { resolve(JSON.parse(xhr.responseText)); }
+                        catch(err) { reject(new Error('Invalid response')); }
+                    });
+                    xhr.addEventListener('error', () => reject(new Error('Network error')));
+                    xhr.open('POST', `/api/upload-csv?key=${API_KEY}`);
+                    xhr.send(form);
+                });
+                dropzone.classList.remove('uploading');
+                if (result.error) { status.textContent = 'Error: ' + result.error; status.style.color = '#dc2626'; }
+                else { status.textContent = `Imported ${result.imported} readings from ${result.filename}`; status.style.color = '#16a34a'; setTimeout(() => location.reload(), 1500); }
+            } catch(e) {
+                dropzone.classList.remove('uploading');
+                status.textContent = 'Upload failed: ' + e.message; status.style.color = '#dc2626';
+            }
         }
 
-        // Manual entry
+        // Manual entry with loading state
         async function submitManual() {
+            const btn = document.getElementById('manual-submit');
+            if (btn.classList.contains('loading')) return;
+            btn.classList.add('loading');
+            const origText = btn.textContent;
+            btn.textContent = 'Saving...';
+
             const fields = {ph:'m-ph', orp_mv:'m-orp', do_mgl:'m-do', do_pct:'m-dopct', ec_us:'m-ec', tds_mgl:'m-tds', ise_value:'m-ise', temp_c:'m-temp'};
             const data = { source: 'manual' };
             for (const [key, id] of Object.entries(fields)) {
@@ -489,15 +588,28 @@
                 if (result.error) { status.textContent = 'Error: ' + result.error; status.style.color = '#dc2626'; }
                 else { status.textContent = `Reading #${result.id} saved`; status.style.color = '#16a34a'; setTimeout(() => location.reload(), 1000); }
             } catch(e) { status.textContent = 'Failed: ' + e.message; status.style.color = '#dc2626'; }
+            btn.classList.remove('loading');
+            btn.textContent = origText;
         }
 
         // Live clock + auto-refresh
         function updateClock() {
             const now = new Date();
-            const opts = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
             document.title = `SimplyO3 Water Quality - ${now.toLocaleTimeString()}`;
         }
         setInterval(updateClock, 1000);
+
+        // Smooth card value updates with fade transition
+        function animateValue(el, newText) {
+            if (!el || el.textContent === newText) return;
+            el.classList.add('updating');
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    el.textContent = newText;
+                    el.classList.remove('updating');
+                }, 150);
+            });
+        }
 
         setInterval(async () => {
             try {
@@ -505,7 +617,10 @@
                 const data = await res.json();
                 if (data.length > 0) {
                     const r = data[data.length - 1];
-                    const set = (id, val, dec) => { const el = document.getElementById(id); if (el && val !== null && val !== undefined) el.textContent = val.toFixed(dec); };
+                    const set = (id, val, dec) => {
+                        const el = document.getElementById(id);
+                        if (el && val !== null && val !== undefined) animateValue(el, val.toFixed(dec));
+                    };
                     set('card-ph', r.ph, 2); set('card-orp', r.orp_mv, 1);
                     set('card-do', r.do_mgl, 2); set('card-dopct', r.do_pct, 1);
                     set('card-ec', r.ec_us, 1); set('card-tds', r.tds_mgl, 1);
@@ -534,21 +649,26 @@
                 if (alerts.error) { list.innerHTML = '<p class="no-data">Auth required to view alerts</p>'; return; }
                 if (alerts.length === 0) { list.innerHTML = '<p class="no-data">No alerts configured</p>'; return; }
                 list.innerHTML = alerts.map(a => `
-                    <div class="alert-item">
+                    <div class="alert-item" id="alert-${a.id}">
                         <span class="info"><strong>${ALERT_LABELS[a.parameter] || a.parameter}</strong> ${COND_LABELS[a.condition] || a.condition} ${a.threshold}${a.label ? ' — ' + a.label : ''}</span>
-                        <button class="delete-btn" onclick="deleteAlert(${a.id})">Delete</button>
+                        <button class="delete-btn" onclick="deleteAlert(${a.id}, this)">Delete</button>
                     </div>
                 `).join('');
             } catch(e) { list.innerHTML = '<p class="no-data">Failed to load alerts</p>'; }
         }
 
         async function createAlert() {
+            const btn = document.querySelector('#alert-form .btn.primary');
+            if (btn.classList.contains('loading')) return;
             const param = document.getElementById('alert-param').value;
             const cond = document.getElementById('alert-cond').value;
             const threshold = parseFloat(document.getElementById('alert-threshold').value);
             const label = document.getElementById('alert-label').value;
             const status = document.getElementById('alert-config-status');
             if (isNaN(threshold)) { status.textContent = 'Enter a valid threshold'; status.style.color = '#dc2626'; return; }
+            btn.classList.add('loading');
+            const origText = btn.textContent;
+            btn.textContent = 'Creating...';
             try {
                 const res = await fetch(`/api/alerts?key=${API_KEY}`, {
                     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -558,16 +678,30 @@
                 if (data.error) { status.textContent = 'Error: ' + data.error; status.style.color = '#dc2626'; }
                 else { status.textContent = 'Alert created'; status.style.color = '#16a34a'; document.getElementById('alert-threshold').value = ''; document.getElementById('alert-label').value = ''; loadAlerts(); }
             } catch(e) { status.textContent = 'Failed: ' + e.message; status.style.color = '#dc2626'; }
+            btn.classList.remove('loading');
+            btn.textContent = origText;
         }
 
-        async function deleteAlert(id) {
+        async function deleteAlert(id, btn) {
+            if (!confirm('Delete this alert?')) return;
+            const item = document.getElementById('alert-' + id);
+            if (btn) btn.disabled = true;
+            if (item) {
+                item.classList.add('removing');
+                await new Promise(r => setTimeout(r, 200));
+            }
             try {
                 await fetch(`/api/alerts/${id}?key=${API_KEY}`, { method: 'DELETE' });
                 loadAlerts();
-            } catch(e) {}
+            } catch(e) { if (item) item.classList.remove('removing'); if (btn) btn.disabled = false; }
         }
 
-        loadChart(24);
+        /* Export links -- add download attribute for proper download behavior */
+        document.querySelectorAll('.btn-row a.btn').forEach(a => {
+            a.setAttribute('download', '');
+        });
+
+        loadChart(24, document.querySelector('.chart-controls button.active'));
         loadAlerts();
     </script>
 </body>
